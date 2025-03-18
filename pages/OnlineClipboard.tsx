@@ -5,6 +5,7 @@ import { Search, Loader2 } from "lucide-react";
 import QRCode from "qrcode";
 import { db } from "@/firebase";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
+import Image from "next/image";
 
 interface ClipboardData {
   text: string;
@@ -65,7 +66,7 @@ export default function OnlineClipboard() {
       imageUrl = await handleImageUpload(image);
     }
 
-    const clipboardData: any = {
+    const clipboardData: ClipboardData = {
       text,
       code: randomCode,
       createdAt: new Date(),
@@ -136,7 +137,8 @@ export default function OnlineClipboard() {
         {generatedUrl && (
           <div className="mt-4 bg-gray-100 p-4 rounded-lg">
             <p className="mt-2">Code: <strong>{generatedCode}</strong></p>
-            {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="mt-4 w-40" />}
+            {qrCodeUrl && <Image src={qrCodeUrl} alt="QR Code" className="mt-4 w-40" width={160} height={160} />
+            }
           </div>
         )}
       </div>
@@ -171,10 +173,12 @@ export default function OnlineClipboard() {
             {retrievedData.imageUrl && (
               <div className="mt-4">
                 <p className="text-gray-700 font-semibold">Stored Image:</p>
-                <img
+                <Image
                   src={retrievedData.imageUrl}
                   alt="Stored"
                   className="w-40 rounded-lg mt-2 cursor-pointer"
+                  width={160}
+                  height={160}
                   onClick={() => window.open(retrievedData.imageUrl, "_blank")}
                 />
               </div>
