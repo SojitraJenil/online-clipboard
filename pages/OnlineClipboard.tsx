@@ -1,103 +1,142 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Search, Loader2 } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import QRCode from "qrcode";
 import { db } from "@/firebase";
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore";
 
+interface ClipboardData {
+  text: string;
+  imageUrl?: string;
+  code: string;
+  createdAt: Date;
+}
+
 export default function OnlineClipboard() {
+  const cloudName = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME;
+  const uploadPreset = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET;
+  const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
   const [text, setText] = useState("");
+  const [image, setImage] = useState<File | null>(null);
   const [generatedUrl, setGeneratedUrl] = useState("");
   const [generatedCode, setGeneratedCode] = useState("");
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [inputCode, setInputCode] = useState("");
-  const [retrievedText, setRetrievedText] = useState("");
+  const [retrievedData, setRetrievedData] = useState<ClipboardData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [textError, setTextError] = useState("");
+  const [codeError, setCodeError] = useState("");
 
-  const generateRandomCode = () => {
-    return Math.floor(1000 + Math.random() * 9000).toString();
+  const generateRandomCode = () => Math.floor(1000 + Math.random() * 9000).toString();
+
+  const handleImageUpload = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset!); // Ensure this is defined
+
+    const res = await fetch(cloudinaryUrl, { method: "POST", body: formData });
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Cloudinary upload error:", errorData);
+      alert(errorData.error.message);
+      return "";
+    }
+
+    const data = await res.json();
+    return data.secure_url;
   };
 
-  const handleSubmit = async () => {
-    if (!text.trim()) return alert("Enter some text");
+
+  const handleSubmit = async (): Promise<void> => {
+    if (!text.trim() && !image) {
+      setTextError("Enter some text or upload an image.");
+      return;
+    }
+    setTextError(""); // Clear previous error
 
     setLoading(true);
     const randomCode = generateRandomCode();
-    const docRef = await addDoc(collection(db, "clipboards"), {
+    let imageUrl = "";
+
+    if (image) {
+      imageUrl = await handleImageUpload(image);
+    }
+
+    const clipboardData: any = {
       text,
       code: randomCode,
       createdAt: new Date(),
-    });
+    };
 
-    const newUrl = `${window.location.origin}/retrieve/${docRef.id}`;
+    if (imageUrl) clipboardData.imageUrl = imageUrl;
 
-    // Generate QR Code
+    await addDoc(collection(db, "clipboards"), clipboardData);
+
+    const newUrl = `${window.location.origin}/retrieve/${randomCode}`;
     const qrData = await QRCode.toDataURL(newUrl);
 
-    // Set URL and Code before clearing text
     setGeneratedUrl(newUrl);
     setGeneratedCode(randomCode);
     setQrCodeUrl(qrData);
-
-    // Clear text after updating other states
     setText("");
-
+    setImage(null);
     setLoading(false);
   };
 
-
   const handleRetrieve = async () => {
-    if (!inputCode.trim()) return alert("Enter a valid code");
+    if (!inputCode.trim()) {
+      setCodeError("Enter a valid code.");
+      return;
+    }
+    setCodeError("");
 
     const q = query(collection(db, "clipboards"), where("code", "==", inputCode));
     const querySnapshot = await getDocs(q);
 
-    if (!querySnapshot.empty) {
-      const docData = querySnapshot.docs[0].data();
-      setRetrievedText(docData.text);
+    if (querySnapshot.empty) {
+      setRetrievedData({ text: "No data found for this code.", code: "", createdAt: new Date() });
     } else {
-      setRetrievedText("No data found for this code.");
+      setRetrievedData(querySnapshot.docs[0].data() as ClipboardData);
     }
   };
-
 
   return (
     <main className="min-h-screen flex flex-col items-center py-12 px-6 bg-gray-50">
       <h1 className="text-4xl font-bold text-indigo-600 mb-6">Online Clipboard</h1>
 
-      {/* Text Input Section */}
       <div className="w-full max-w-3xl bg-white shadow-lg rounded-lg p-6 border border-gray-200">
         <textarea
-          className="w-full h-40 p-4 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full h-40 p-4 border border-gray-300 rounded-md"
           placeholder="Paste your text here..."
           value={text}
           onChange={(e) => setText(e.target.value)}
         ></textarea>
 
+        {/* Error Message for Text Input */}
+        {textError && <p className="text-red-500 text-sm mt-2">{textError}</p>}
+
+        <input
+          type="file"
+          accept="image/*"
+          className="mt-3"
+          onChange={(e) => e.target.files && setImage(e.target.files[0])}
+        />
+
         <button
           onClick={handleSubmit}
           disabled={loading}
-          className={`mt-4 text-white px-6 py-2 rounded-lg w-full flex justify-center items-center ${loading ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"}`}
+          className={`mt-4 text-white px-6 py-2 rounded-lg w-full ${loading ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"}`}
         >
           {loading ? <Loader2 className="animate-spin h-5 w-5" /> : "Generate URL"}
         </button>
 
-        {/* Generated Link, Code, and QR Code */}
         {generatedUrl && (
           <div className="mt-4 bg-gray-100 p-4 rounded-lg">
-            <p className="text-gray-700">Share this link:</p>
-            <div className="flex justify-between items-center">
-              <input type="text" value={generatedUrl} readOnly className="w-full bg-transparent" />
-              <button
-                onClick={() => { alert("Copied to clipboard!"); navigator.clipboard.writeText(generatedUrl) }}
-                className="ml-2 bg-blue-500 text-white px-4 py-1 rounded-lg hover:bg-blue-600"
-              >
-                <Copy className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="mt-2 text-gray-700">Or use this code: <strong>{generatedCode}</strong></p>
-            {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="mt-4 w-40 mx-auto" />}
+            <p className="mt-2">Code: <strong>{generatedCode}</strong></p>
+            {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" className="mt-4 w-40" />}
           </div>
         )}
       </div>
@@ -108,32 +147,39 @@ export default function OnlineClipboard() {
         <input
           type="text"
           placeholder="Enter your code"
-          className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full p-3 border border-gray-300 rounded-md"
           value={inputCode}
           onChange={(e) => setInputCode(e.target.value)}
         />
+
+        {/* Error Message for Code Input */}
+        {codeError && <p className="text-red-500 text-sm mt-2">{codeError}</p>}
+
         <button
           onClick={handleRetrieve}
           className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 w-full"
         >
           <Search className="inline-block mr-2" /> Retrieve
         </button>
-        {retrievedText && (
+
+        {retrievedData && (
           <div className="mt-4 bg-gray-100 p-4 rounded-lg">
             <p className="text-gray-700">Retrieved Text:</p>
+            <p>{retrievedData.text}</p>
 
-            <div className="p-3 bg-white border border-gray-300 rounded-md flex justify-between items-center">
-              <span className="break-all">{retrievedText}</span>
-              {
-                retrievedText &&
-                <button
-                  onClick={() => { alert("Copied to clipboard!"); navigator.clipboard.writeText(retrievedText) }}
-                  className="ml-2 bg-blue-500 text-white px-4 py-1 rounded-lg hover:bg-blue-600 flex items-center"
-                >
-                  <Copy className="h-5 w-5" />
-                </button>
-              }
-            </div>
+            {/* Display and Download Image */}
+            {retrievedData.imageUrl && (
+              <div className="mt-4">
+                <p className="text-gray-700 font-semibold">Stored Image:</p>
+                <img
+                  src={retrievedData.imageUrl}
+                  alt="Stored"
+                  className="w-40 rounded-lg mt-2 cursor-pointer"
+                  onClick={() => window.open(retrievedData.imageUrl, "_blank")}
+                />
+              </div>
+            )}
+
           </div>
         )}
       </div>
