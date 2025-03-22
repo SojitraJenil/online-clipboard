@@ -29,26 +29,49 @@ export default function OnlineClipboard() {
   const [loading, setLoading] = useState(false);
   const [textError, setTextError] = useState("");
   const [codeError, setCodeError] = useState("");
+  console.log('--------------retrievedData.imageUrl :>> ', retrievedData);
+
+  console.log("================>Cloud Name:", process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME);
+  console.log("================>Upload Preset:", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
+
 
   const generateRandomCode = () => Math.floor(1000 + Math.random() * 9000).toString();
 
   const handleImageUpload = async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("upload_preset", uploadPreset!); // Ensure this is defined
+    if (process.env.NODE_ENV === "development") {
+      const localUrl = URL.createObjectURL(file);
+      return localUrl;
+    }
 
-    const res = await fetch(cloudinaryUrl, { method: "POST", body: formData });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      console.error("Cloudinary upload error:", errorData);
-      alert(errorData.error.message);
+    if (!cloudName || !uploadPreset) {
+      console.error("Cloudinary environment variables are missing.");
+      alert("Image upload is not configured properly.");
       return "";
     }
 
-    const data = await res.json();
-    return data.secure_url;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", uploadPreset);
+
+    try {
+      const res = await fetch(cloudinaryUrl, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      return data.secure_url;
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      alert("Failed to upload image. Please try again.");
+      return "";
+    }
   };
+
 
 
   const handleSubmit = async (): Promise<void> => {

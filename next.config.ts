@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_CLOUDINARY_API_KEY: process.env.NEXT_PUBLIC_CLOUDINARY_API_KEY,
     NEXT_PUBLIC_CLOUDINARY_API_SECRET: process.env.NEXT_PUBLIC_CLOUDINARY_API_SECRET,
   },
+  images: {
+    domains: ["res.cloudinary.com"],
+  }
 };
 
 export default nextConfig;
