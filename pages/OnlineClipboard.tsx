@@ -8,6 +8,7 @@ import QRCode from "qrcode"
 import { db } from "@/firebase"
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore"
 import Image from "next/image"
+import Link from "next/link"
 
 interface ClipboardData {
   text: string
@@ -24,7 +25,6 @@ export default function OnlineClipboard() {
   const [text, setText] = useState("")
   const [image, setImage] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [generatedUrl, setGeneratedUrl] = useState("")
   const [generatedCode, setGeneratedCode] = useState("")
   const [qrCodeUrl, setQrCodeUrl] = useState("")
   const [inputCode, setInputCode] = useState("")
@@ -119,10 +119,19 @@ export default function OnlineClipboard() {
     try {
       await addDoc(collection(db, "clipboards"), clipboardData)
 
-      const newUrl = `${window.location.origin}/retrieve/${randomCode}`
+      // Generate URL based on environment
+      const baseUrl = window.location.origin
+      // Ensure the URL is properly formatted for both local and production
+      const newUrl = `${baseUrl}/retrieve/${randomCode}`
+
+      // Log the generated URL for debugging
+      console.log("Generated URL:", newUrl)
+      console.log("Environment:", process.env.NODE_ENV)
+      console.log("Generated code:", randomCode)
+
       const qrData = await QRCode.toDataURL(newUrl)
 
-      setGeneratedUrl(newUrl)
+      // setGeneratedUrl(newUrl)
       setGeneratedCode(randomCode)
       setQrCodeUrl(qrData)
       setText("")
@@ -136,29 +145,25 @@ export default function OnlineClipboard() {
     }
   }
 
-  const handleRetrieve = async () => {
-    if (!inputCode.trim()) {
-      setCodeError("Please enter a valid code.")
-      return
-    }
-    setCodeError("")
-    setRetrieveLoading(true)
+  const displayFullUrl = () => {
+    if (!generatedCode) return null
 
-    try {
-      const q = query(collection(db, "clipboards"), where("code", "==", inputCode))
-      const querySnapshot = await getDocs(q)
+    const fullUrl = `${window.location.origin}/retrieve/${generatedCode}`
 
-      if (querySnapshot.empty) {
-        setRetrievedData({ text: "No data found for this code.", code: "", createdAt: new Date() })
-      } else {
-        setRetrievedData(querySnapshot.docs[0].data() as ClipboardData)
-      }
-    } catch (error) {
-      console.error("Error retrieving data:", error)
-      setCodeError("Failed to retrieve data. Please try again.")
-    } finally {
-      setRetrieveLoading(false)
-    }
+    return (
+      <div className="mt-3">
+        <div className="text-sm text-gray-600 mb-1">Full URL:</div>
+        <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between overflow-x-auto">
+          <span className="font-mono text-sm truncate mr-2">{fullUrl}</span>
+          <button
+            onClick={() => copyToClipboard(fullUrl)}
+            className="flex-shrink-0 text-indigo-600 hover:text-indigo-800"
+          >
+            {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const copyToClipboard = (text: string) => {
@@ -174,9 +179,37 @@ export default function OnlineClipboard() {
     setTextError("")
   }
 
+  const handleRetrieve = async () => {
+    if (!inputCode.trim()) {
+      setCodeError("Please enter the code to retrieve.")
+      return
+    }
+
+    setCodeError("")
+    setRetrieveLoading(true)
+
+    try {
+      const q = query(collection(db, "clipboards"), where("code", "==", inputCode))
+      const querySnapshot = await getDocs(q)
+
+      if (!querySnapshot.empty) {
+        const doc = querySnapshot.docs[0]
+        const data = doc.data() as ClipboardData
+        setRetrievedData(data)
+      } else {
+        setCodeError("Invalid code. No data found.")
+        setRetrievedData(null)
+      }
+    } catch (error) {
+      console.error("Error retrieving data:", error)
+      setCodeError("Failed to retrieve data. Please try again.")
+    } finally {
+      setRetrieveLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
-      {/* Header */}
       <header className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-6 px-4 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col items-center">
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">Online Clipboard</h1>
@@ -197,22 +230,22 @@ export default function OnlineClipboard() {
           <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab("text")}
-              className={`flex items-center justify-center py-3 px-6 font-medium text-sm ${activeTab === "text"
-                  ? "text-indigo-600 border-b-2 border-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+              className={`flex items-center justify-center py-3 px-6 font-medium text-sm transition-all duration-300 ${activeTab === "text"
+                ? "text-indigo-600 border-b-2 border-indigo-600"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                 }`}
             >
-              <Clipboard className="w-4 h-4 mr-2" />
+              <Clipboard className={`w-4 h-4 mr-2 ${activeTab === "text" ? "animate-bounce" : ""}`} />
               Text Clipboard
             </button>
             <button
               onClick={() => setActiveTab("image")}
-              className={`flex items-center justify-center py-3 px-6 font-medium text-sm ${activeTab === "image"
-                  ? "text-indigo-600 border-b-2 border-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
+              className={`flex items-center justify-center py-3 px-6 font-medium text-sm transition-all duration-300 ${activeTab === "image"
+                ? "text-indigo-600 border-b-2 border-indigo-600"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
                 }`}
             >
-              <ImageIcon className="w-4 h-4 mr-2" />
+              <ImageIcon className={`w-4 h-4 mr-2 ${activeTab === "image" ? "animate-bounce" : ""}`} />
               Image Clipboard
             </button>
           </div>
@@ -233,26 +266,31 @@ export default function OnlineClipboard() {
             {/* Image Tab Content */}
             {activeTab === "image" && (
               <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all duration-300 hover:border-indigo-400 hover:bg-indigo-50">
                   {imagePreview ? (
                     <div className="relative">
-                      <img
+                      <Image
                         src={imagePreview || "/placeholder.svg"}
                         alt="Preview"
-                        className="max-h-64 mx-auto rounded-lg"
+                        width={300} // Replace with an appropriate width
+                        height={300} // Replace with an appropriate width
+                        className="max-h-64 mx-auto rounded-lg transition-transform duration-300 hover:scale-105"
                       />
                       <button
                         onClick={() => {
                           setImage(null)
                           setImagePreview(null)
                         }}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
+                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600 transition-colors duration-200"
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   ) : (
-                    <div onClick={() => fileInputRef.current?.click()} className="cursor-pointer">
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="cursor-pointer transition-transform duration-300 hover:scale-105"
+                    >
                       <Upload className="w-12 h-12 mx-auto text-gray-400" />
                       <p className="mt-2 text-sm text-gray-500">Click to select an image or drag and drop</p>
                     </div>
@@ -307,21 +345,35 @@ export default function OnlineClipboard() {
 
           {/* Generated Code Section */}
           {generatedCode && (
-            <div className="bg-indigo-50 p-6 border-t border-indigo-100">
+            <div
+              className="bg-indigo-50 p-6 border-t border-indigo-100 transition-all duration-500 ease-in-out "
+              id="generated-url-container"
+            >
               <div className="flex flex-col md:flex-row md:items-center gap-6">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Your Clipboard is Ready!</h3>
-                  <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between mb-2">
-                    <span className="font-mono text-lg">{generatedCode}</span>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                    Your Clipboard is Ready!
+                  </h3>
+                  <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between mb-2 hover:shadow-md transition-shadow duration-300">
+                    <span className="font-mono text-lg">Code: {generatedCode}</span>
                     <button
                       onClick={() => copyToClipboard(generatedCode)}
-                      className="text-indigo-600 hover:text-indigo-800"
+                      className="text-indigo-600 hover:text-indigo-800 transition-colors duration-200"
                     >
-                      {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                      {copied ? <Check className="w-5 h-5 animate-pulse" /> : <Copy className="w-5 h-5" />}
                     </button>
                   </div>
-                  <p className="text-sm text-gray-600">
-                    Share this code with others to give them access to your clipboard content.
+                  {displayFullUrl()}
+                  <div className="mt-4">
+                    <Link
+                      href={`/retrieve/${generatedCode}`}
+                      className="inline-flex items-center justify-center bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-lg font-medium transition-colors duration-200"
+                    >
+                      View Clipboard
+                    </Link>
+                  </div>
+                  <p className="text-sm text-gray-600 mt-2 animate-fadeIn">
+                    Share this code or URL with others to give them access to your clipboard content.
                   </p>
                 </div>
 
@@ -332,7 +384,7 @@ export default function OnlineClipboard() {
                       alt="QR Code"
                       width={120}
                       height={120}
-                      className="border-4 border-white shadow-md rounded-lg"
+                      className="border-4 border-white shadow-md rounded-lg hover:scale-110 transition-transform duration-300"
                     />
                   </div>
                 )}
@@ -382,42 +434,42 @@ export default function OnlineClipboard() {
 
             {/* Retrieved Data */}
             {retrievedData && (
-              <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-800 mb-3">Retrieved Content</h3>
+              <div className="mt-6 bg-gray-50 p-4 rounded-lg border border-gray-200 animate-fadeIn">
+                <h3 className="text-lg font-semibold text-gray-800 mb-3 animate-slideDown">Retrieved Content</h3>
 
                 {retrievedData.text && (
-                  <div className="mb-4">
+                  <div className="mb-4 animate-slideUp">
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-sm font-medium text-gray-500">Text</h4>
                       <button
                         onClick={() => copyToClipboard(retrievedData.text)}
-                        className="text-indigo-600 hover:text-indigo-800 p-1"
+                        className="text-indigo-600 hover:text-indigo-800 p-1 transition-colors duration-200"
                       >
                         <Copy className="w-4 h-4" />
                       </button>
                     </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-200 text-gray-800">
+                    <div className="bg-white p-3 rounded-lg border border-gray-200 text-gray-800 hover:shadow-md transition-shadow duration-300">
                       {retrievedData.text}
                     </div>
                   </div>
                 )}
 
                 {retrievedData.imageUrl && (
-                  <div>
+                  <div className="">
                     <h4 className="text-sm font-medium text-gray-500 mb-2">Image</h4>
-                    <div className="bg-white p-2 rounded-lg border border-gray-200">
+                    <div className="bg-white p-2 rounded-lg border border-gray-200 hover:shadow-md transition-shadow duration-300">
                       <Image
                         src={retrievedData.imageUrl || "/placeholder.svg"}
                         alt="Retrieved image"
                         width={300}
                         height={300}
-                        className="max-h-64 mx-auto rounded-lg object-contain"
+                        className="max-h-64 mx-auto rounded-lg object-contain transition-transform duration-300 hover:scale-105"
                         onClick={() => window.open(retrievedData.imageUrl, "_blank")}
                       />
                       <div className="text-center mt-2">
                         <button
                           onClick={() => window.open(retrievedData.imageUrl, "_blank")}
-                          className="text-sm text-indigo-600 hover:text-indigo-800"
+                          className="text-sm text-indigo-600 hover:text-indigo-800 transition-colors duration-200"
                         >
                           Click to view full size
                         </button>
