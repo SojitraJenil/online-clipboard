@@ -34,7 +34,7 @@ export default function OnlineClipboard() {
   const [retrieveLoading, setRetrieveLoading] = useState(false)
   const [textError, setTextError] = useState("")
   const [codeError, setCodeError] = useState("")
-  const [activeTab, setActiveTab] = useState<"text" | "image">("text")
+  const [activeTab, setActiveTab] = useState<"text" | "image" | "file">("text")
   const [copied, setCopied] = useState(false)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -254,6 +254,16 @@ export default function OnlineClipboard() {
               <ImageIcon className={`w-4 h-4 mr-2 ${activeTab === "image" ? "animate-bounce" : ""}`} />
               Image Clipboard
             </button>
+            <button
+              onClick={() => setActiveTab("file")}
+              className={`flex items-center justify-center py-3 px-6 font-medium text-sm transition-all duration-300 ${activeTab === "file"
+                ? "text-indigo-600 border-b-2 border-indigo-600"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                }`}
+            >
+              <ImageIcon className={`w-4 h-4 mr-2 ${activeTab === "file" ? "animate-bounce" : ""}`} />
+              Send File Online
+            </button>
           </div>
 
           <div className="p-6">
@@ -268,6 +278,7 @@ export default function OnlineClipboard() {
                 ></textarea>
               </div>
             )}
+
 
             {/* Image Tab Content */}
             {activeTab === "image" && (
@@ -312,6 +323,18 @@ export default function OnlineClipboard() {
               </div>
             )}
 
+            {activeTab === "file" && (
+              <div className="space-y-4">
+                <textarea
+                  className="w-full h-40 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  placeholder="Type or paste your text here..."
+                  value={"Coming Soon.. (Currently in Development)"}
+                  disabled
+                  onChange={(e) => setText(e.target.value)}
+                ></textarea>
+              </div>
+            )}
+
             {/* Error Message */}
             {textError && (
               <div className="mt-2 text-red-500 text-sm flex items-center">
@@ -324,8 +347,8 @@ export default function OnlineClipboard() {
             <div className="mt-6 flex flex-col sm:flex-row gap-3">
               <button
                 onClick={handleSubmit}
-                disabled={loading}
-                className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center transition-colors duration-200"
+                disabled={loading || activeTab === "file"}
+                className={`flex-1 bg-indigo-600 hover:bg-indigo-700 text-white py-3 px-6 rounded-lg font-medium flex items-center justify-center transition-colors duration-200 ${activeTab === "file" && 'cursor-not-allowed hover:bg-indigo-600'}`}
               >
                 {loading ? (
                   <>
@@ -341,7 +364,8 @@ export default function OnlineClipboard() {
               </button>
               <button
                 onClick={clearForm}
-                className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-medium flex items-center justify-center transition-colors duration-200"
+                disabled={activeTab === "file"}
+                className={`flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-lg font-medium flex items-center justify-center transition-colors duration-200 ${activeTab === "file" && 'cursor-not-allowed hover:bg-gray-200'}`}
               >
                 <X className="w-5 h-5 mr-2" />
                 Clear
