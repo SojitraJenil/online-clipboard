@@ -9,6 +9,7 @@ import { db } from "@/firebase"
 import { collection, addDoc, getDocs, query, where } from "firebase/firestore"
 import Image from "next/image"
 import Link from "next/link"
+import LoadingBar, { type LoadingBarRef } from "react-top-loading-bar"
 
 interface ClipboardData {
   text: string
@@ -52,6 +53,8 @@ export default function OnlineClipboard() {
       return ""
     }
 
+    ref.current?.continuousStart() // Start loading bar for image upload
+
     const formData = new FormData()
     formData.append("file", file)
     formData.append("upload_preset", uploadPreset)
@@ -72,6 +75,7 @@ export default function OnlineClipboard() {
       console.error("Image upload failed:", error)
       alert("Failed to upload image. Please try again.")
       return ""
+    } finally {
     }
   }
 
@@ -100,6 +104,7 @@ export default function OnlineClipboard() {
 
     setTextError("") // Clear previous error
     setLoading(true)
+    ref.current?.continuousStart() // Start loading bar
 
     const randomCode = generateRandomCode()
     let imageUrl = ""
@@ -124,11 +129,6 @@ export default function OnlineClipboard() {
       // Ensure the URL is properly formatted for both local and production
       const newUrl = `${baseUrl}/retrieve/${randomCode}`
 
-      // Log the generated URL for debugging
-      console.log("Generated URL:", newUrl)
-      console.log("Environment:", process.env.NODE_ENV)
-      console.log("Generated code:", randomCode)
-
       const qrData = await QRCode.toDataURL(newUrl)
 
       // setGeneratedUrl(newUrl)
@@ -142,6 +142,7 @@ export default function OnlineClipboard() {
       setTextError("Failed to save. Please try again.")
     } finally {
       setLoading(false)
+      ref.current?.complete()
     }
   }
 
@@ -187,6 +188,7 @@ export default function OnlineClipboard() {
 
     setCodeError("")
     setRetrieveLoading(true)
+    ref.current?.continuousStart()
 
     try {
       const q = query(collection(db, "clipboards"), where("code", "==", inputCode))
@@ -205,15 +207,19 @@ export default function OnlineClipboard() {
       setCodeError("Failed to retrieve data. Please try again.")
     } finally {
       setRetrieveLoading(false)
+      ref.current?.complete();
     }
   }
 
+  const ref = useRef<LoadingBarRef>(null)
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-slate-50 to-slate-100">
-      <header className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-6 px-4 shadow-lg">
+      <LoadingBar color="#000" ref={ref} shadow={true} />
+      <header className="bg-gradient-to-r from-purple-100 to-indigo-200 text-white py-6 px-4 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col items-center">
-          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2">Online Clipboard</h1>
-          <p className="text-purple-100 text-center max-w-2xl">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2 text-black">Online Clipboard</h1>
+          <p className="text-black text-center max-w-2xl">
             Securely share text and images across devices with a simple code
           </p>
         </div>
@@ -351,9 +357,7 @@ export default function OnlineClipboard() {
             >
               <div className="flex flex-col md:flex-row md:items-center gap-6">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                    Your Clipboard is Ready!
-                  </h3>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">Your Clipboard is Ready!</h3>
                   <div className="bg-white p-3 rounded-lg border border-gray-200 flex items-center justify-between mb-2 hover:shadow-md transition-shadow duration-300">
                     <span className="font-mono text-lg">Code: {generatedCode}</span>
                     <button
