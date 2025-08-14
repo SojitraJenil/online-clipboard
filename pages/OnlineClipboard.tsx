@@ -218,6 +218,26 @@ export default function OnlineClipboard() {
       <LoadingBar color="#000" ref={ref} shadow={true} />
       <header className="bg-gradient-to-r from-purple-100 to-indigo-200 text-white py-6 px-4 shadow-lg">
         <div className="max-w-6xl mx-auto flex flex-col items-center">
+
+
+
+    <div style={{ width: "100%", height: "100vh" }}>
+      <iframe
+        src="https://example.com" // replace with allowed third-party URL
+        style={{
+          width: "100%",
+          height: "100%",
+          border: "none",
+        }}
+        title="Third Party Content"
+      />
+    </div>
+  
+
+
+
+
+
           <h1 className="text-4xl md:text-5xl font-bold tracking-tight mb-2 text-black">Online Clipboard</h1>
           <p className="text-black text-center max-w-2xl">
             Securely share text and images across devices with a simple code
