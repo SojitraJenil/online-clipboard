@@ -10,7 +10,7 @@ export default function Home() {
 <br/>
   <div style={{ width: "100%", height: "100vh" }}>
       <iframe
-        src="https://chat.openai.com"
+        src="http://chatgpt.com"
         style={{
           width: "100%",
           height: "100%",
