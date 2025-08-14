@@ -10,7 +10,7 @@ export default function Home() {
 <br/>
   <div style={{ width: "100%", height: "100vh" }}>
       <iframe
-        src="https://example.com" // replace with allowed third-party URL
+        src="https://chat.openai.com"
         style={{
           width: "100%",
           height: "100%",
